@@ -13,7 +13,7 @@ integer, parameter :: TT = int(300.0/dt)+1, lapse = int(3.0/dt)
 real, parameter :: epsilon = 0.1
 real, parameter :: L = 2560.0, dx = L/NN, dk = 2.0*pi/L
 ! real(8) in(NN), x(NN), v(2*NN)
-real(8) in(NN), van(NN), x(NN), v(NN)
+real(8) van(NN), x(NN), v(NN)
 type(C_PTR) :: plan, plan2
 integer i, j
 !! integer, parameter :: x_lim_1 = 0.0, x_lim_2 = int((540.0+L/2.0)/dx)
