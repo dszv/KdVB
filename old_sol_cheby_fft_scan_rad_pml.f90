@@ -7,14 +7,14 @@ include "fftw3.f03"
 integer, parameter :: nn = 2**11                 ! number of nodes to sample on (i.e. spectral order)
 real, parameter :: ell = 200.0
 real, parameter :: eps = 0.0
-real, parameter :: Omega = 0.9
+real, parameter :: vel = 7.8
 
 ! this is exactly what you think it is...
 real, parameter :: pi = 3.1415926535897932384626433832795028841971694Q0
 
 real r(nn), red(nn), gamma(nn)
 ! phase space state vector packs [phi,u,v,w] into a single array
-real state(4*nn), F(nn), der_an(nn), der_num(nn), omega_span(50), phase_init_span(50)
+real state(nn), F(nn), der_an(nn), der_num(nn), omega_span(50), phase_init_span(50)
 integer i, j, ind(1), break
 integer, parameter :: init_phase = 1
 integer, parameter :: final_phase = 5
@@ -30,22 +30,11 @@ omega_span(i+1) = 10.0**(-1.0+0.02*i)
 phase_init_span(i+1) = pi*i/50.0
 end do
 
-!do i = init_phase,final_phase; do j =1,50
-call evol_point(Omega, phase_init_span(1), amp_vec)
+!do i = init_phase, final_phase; do j =1,50
+call evol_point(vel, phase_init_span(1), amp_vec)
  !   call dump(amp_vec, 1, 1)
 write (*, '(6G24.12e3)') "mode", 50*(i-1)+j, "finished..."
 !end do; end do
-
-
-! debugging derivatives
-
-!F = 1.0/(1.0+r*r/2.0)
-!der_an = -r*F*F
-!der_num = Dr(F)
-
-!do i = 1, nn
-!write (*,'(6G24.12e3)') r(i), der_an(i), der_num(i), abs(der_an(i)-der_num(i))
-!end do
 
 
 contains
@@ -54,10 +43,10 @@ subroutine evol_point(omega, phase_init, amp_vec)
 real, intent(in) :: omega
 real, intent(in) :: phase_init
 real, intent(out) :: amp_vec(out_amp)
-real state_evol(4*nn)
+real state_evol(nn)
 integer count, j
 
-call init_SG_breather(state_evol, omega, phase_init, r)
+call init_KdV_soliton(state_evol, omega, phase_init, r)
 j=0
 amp_vec = 0.0
 do count = 1,tt
@@ -102,100 +91,65 @@ integer j, i
 integer, parameter :: pml = 2**4
 forall (j=1:nn) red(j) = (nn-j+0.5)*pi/real(nn);
 forall (j=1:nn) r(j) = ell*cos(0.5*red(j))/sin(0.5*red(j))
-forall (j=1:nn) gamma(j) = exp(-real(nn-j)**2/(1.0*pml)**2)+&
-exp(-real(j-1)**2/pml**2) - 1.25e-4
-! forall (i=1:nn) gamma(i) = exp(-real(nn-i)**2/pml**2) - 1.25e-4
-where (gamma<0.0) gamma = 0.0; gamma = 0.5/dt/gamma(1)*gamma
-! where (gamma<0.0) gamma = 0.0; gamma = (1.0/dt)/gamma(nn)*gamma
+! forall (j=1:nn) gamma(j) = exp(-real(nn-j)**2/(1.0*pml)**2)+&
+! exp(-real(j-1)**2/pml**2) - 1.25e-4
+forall (i=1:nn) gamma(i) = exp(-real(nn-i)**2/pml**2) - 1.25e-4
+! where (gamma<0.0) gamma = 0.0; gamma = 0.5/dt/gamma(1)*gamma
+where (gamma<0.0) gamma = 0.0; gamma = (1.0/dt)/gamma(nn)*gamma
 end subroutine radial_grid
 
 ! initial breather
-subroutine init_SG_breather(state, omega, phase_init, r)
-real, dimension(4*nn), intent(out) :: state
+subroutine init_KdV_soliton(state, omega, phase_init, r)
+real, dimension(nn), intent(out) :: state
 real, intent(in) :: omega, phase_init
-real SG_breather(nn), SG_breather_t(nn), w(nn), SG_breather_r(nn), tan_aux(nn)
+real KdV_soliton(nn), sech_aux(nn)
 real, dimension(nn), intent(in) :: r
 integer i
 
-tan_aux = sqrt(1.0-omega*omega)*cos(phase_init)&
-/(omega*cosh(sqrt(1.0-omega*omega)*r))
-SG_breather = 4.0*atan(tan_aux)
-SG_breather_t = (-4.0*omega*tan(phase_init)*tan_aux)/(1.0+tan_aux*tan_aux)
-SG_breather_r = (-4.0*sqrt(1.0-omega*omega)*tanh(sqrt(1.0-omega*omega)*r)*&
-tan_aux)/(1.0+tan_aux*tan_aux)
-w = 0.0
+sech_aux = 1.0/cosh((sqrt(vel)/2)*(r - 30.0))
+KdV_soliton = (vel/2)*(sech_aux**2)
 do i = 1, nn
-    state(i) = 0.0 ! SG_breather(i)
-    state(nn+i) = 0.0 ! SG_breather_t(i)
-    state(2*nn+i) = 0.0 ! SG_breather_r(i)/r(i)
-    state(3*nn+i) = 0.0
+    state(i) = KdV_soliton(i)
 end do
-end subroutine init_SG_breather
+end subroutine init_KdV_soliton
 
-subroutine sgbreather(psi, omega, time, r) !time or time_count?
-real, dimension(nn), intent(out) :: psi
-real, intent(in) :: omega
-real, intent(in) :: time
-real tan_aux(nn)
-real, dimension(nn), intent(in) :: r
-! integer i
-
-tan_aux = sqrt(1.0-omega*omega)*cos(omega*time)&
-/(omega*cosh(sqrt(1.0-omega*omega)*r))
-psi = 4.0*atan(tan_aux)
-end subroutine sgbreather
 
 ! evaluate equations of motion
 subroutine evalf(y, dydt, time_count)
-        real, dimension(4*nn) :: y, dydt
-        real t, phi(nn), dphi(nn), u(nn), dudt(nn), v(nn), dvdt(nn), w(nn), dwdt(nn)
+        real, dimension(nn) :: y, dydt
+        real t, phi(nn), dphi(nn)
         integer fill, time_count
-        real, dimension(nn) :: psi 
 ! break state into pieces
 do fill = 1, nn
     phi(fill) = y(fill)
-    u(fill) = y(nn+fill)
-    v(fill) = y(2*nn+fill)
-    w(fill) = y(3*nn+fill)
 end do
 
-! psi must be the sine-gordon breather
-call sgbreather(psi, Omega, real(time_count), r)
-
-! set pieces in EOMs, epsilon = 0.01
-dphi = u - w
-dudt = r*Dr(v, time_count) - gamma*u
-dvdt = (1.0/r)*Dr(u - w, time_count) - gamma*v
-dwdt = cos(psi)*phi - v - (1.0/r)*Dr(psi, time_count)
+! set pieces in EOMs
+dphi = -6.0 * phi*Dr(phi, time_count) - Dr(Dr(Dr(phi, time_count), time_count), time_count)
 
 ! build derivatives
 do fill = 1, nn
     dydt(fill) = dphi(fill)
-    dydt(nn+fill) = dudt(fill)
-    dydt(2*nn+fill) = dvdt(fill)
-    dydt(3*nn+fill) = dwdt(fill)
 end do
 end subroutine evalf
 
 
 subroutine dump_sol(state, mark, time)
-real state(4*nn), time
+real state(nn), time
 integer c2, mark
-real, dimension(nn) :: Psi
-call sgbreather(Psi, Omega, time, r)
 
-if (mark == 1) open(unit = 22, file = 'approx_breather_v2.bin', access='stream', status='unknown')
-if (mark> 1) open(unit = 22, file = 'approx_breather_v2.bin', access='stream', status='old', position = 'append')
+if (mark == 1) open(unit = 22, file = 'soliton.bin', access='stream', status='unknown')
+if (mark> 1) open(unit = 22, file = 'soliton.bin', access='stream', status='old', position = 'append')
 
 do c2 = 1, nn
-    write (22) time, r(c2), Psi(c2), state(c2)
+    write (22) time, r(c2), state(c2)
 end do
 close (22)
 
 end subroutine dump_sol
 
 subroutine gl8(y, dt, time_count)
-        integer, parameter :: s = 4, n = 4*nn
+        integer, parameter :: s = 4, n = nn
         real y(n), g(n,s), dt; integer i, k, time_count
         
         ! Butcher tableau for 8th order Gauss-Legendre method
