@@ -5,25 +5,30 @@ include "fftw3.f03"
 
 integer, parameter :: NN = 2**13, NN2 = NN/2 + 1
 real, parameter :: pi = 3.141592653589793238462643383279502884197169399375Q0
-real, parameter :: vel = 2.0
-real, parameter :: x0 = 500.0
+! real, parameter :: vel = 2.0
+real, parameter :: x0 = 300.0
 real, parameter :: t0 = 0.0
 real, parameter :: dt = 0.001
-integer, parameter :: TT = int(300.0/dt)+1 ! , lapse = int(3.0/dt)
+integer, parameter :: TT = int(300/dt)+1 ! , lapse = int(3.0/dt)
 real, parameter :: epsilon = 0.1
 real, parameter :: L = 2560.0, dx = L/NN, dk = 2.0*pi/L
 real(8) van(NN), x(NN), v(NN)
 type(C_PTR) :: plan, plan2
-integer i, j
+integer i, j, m
 
 forall (i=1:NN) x(i) = (i-1)*dx
 
-call kdv(v, x, 0.0)
-
+print *, "full solution"
+do m = 1, 20
+! vel = m*0.1
+call kdv(v, x, m*0.1, 0.0)
+call dump_sol(v, m, 0.0)
+print *, "vel:", m*0.1
 do j = 1, TT
- call gl8(v, dt, j)
- call kdv(van, x, j*dt)
- call dump_sol(v, j, j*dt)
+call gl8(v, dt, j)
+call kdv(van, x, m*0.1, j*dt)
+call dump_sol(v, m+j, j*dt)
+end do
 end do
 
 contains
@@ -60,8 +65,8 @@ forall (i=1:NN) dvdt(i) = rhs(i)/(1.0*NN)
 
 end subroutine evalf
 
-subroutine kdv(v, x, t)
-real v(NN), x(NN), t
+subroutine kdv(v, x, vel, t)
+real v(NN), x(NN), vel, t
 
 forall (i=1:NN) v(i) = vel/2.0*(1.0/cosh(sqrt(vel)/2.0*((x(i)-x0)-vel*(t-t0))))**2
 
