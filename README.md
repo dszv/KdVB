@@ -11,3 +11,5 @@ Para encontrar $ \Delta t $ se debe comparar el resultado de kdvb con el resulta
 Para hallar la matriz V solo basta con usar el resultado final de lin_kdvb (phi1).
 
 Obs: Borrar o mover los .bin antes de hacer push a github.
+
+Obs2: ifort -r8 -O3 cheby_fft_scan.f90 -o test.out -L/home/diego/.local/src/fftw/lib -lfftw3 -I/home/diego/.local/src/fftw/include
