@@ -7,11 +7,11 @@ integer, parameter :: NN = 2**13, NN2 = NN/2 + 1
 real, parameter :: pi = 3.141592653589793238462643383279502884197169399375Q0
 real, parameter :: vel = 2.0
 
-real, parameter :: x0 = 300.0
+real, parameter :: x0 =100.0
 real, parameter :: t0 = 0.0
 
 real, parameter :: dt = 0.001
-integer, parameter :: TT = int(2400.0/dt) ! , lapse = int(3.0/dt)
+integer, parameter :: TT = int(2400.0/dt) ! , lapse = int(2400.0/dt)
 real, parameter :: cut = real(int(real(TT)/5000.0))
 
 ! real, parameter :: epsilon = 0.1
@@ -27,6 +27,9 @@ print *, cut
 forall (i=1:NN) x(i) = (i-1)*dx
 
 print *, "KdVB linearized solution"
+print *, "Total time:", TT*dt
+print *, "x0:", x0
+print *, "v:", vel
 
 forall (i=1:NN) v(i) = 0.0
 call dump_sol(v, 1, 0.0)
@@ -35,7 +38,8 @@ do j = 1, TT
  call gl8(v, dt, j, vel)
  call kdv(van, x, vel, j*dt)
  if (mod(real(j), cut) == 0.0) then
- ! call dump_sol(van + epsilon*v, j, j*dt)
+  print *, "Progress (%): ", 100.0*real(j)/TT
+  !call dump_sol(van + epsilon*v, j, j*dt)
   call dump_sol(v, j + 1, j*dt)
  endif
 end do
