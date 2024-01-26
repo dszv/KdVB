@@ -32,15 +32,14 @@ print *, "x0:", x0
 print *, "v:", vel
 
 forall (i=1:NN) v(i) = 0.0
-call dump_sol(v, 1, 0.0)
+call dump_sol(v, 0, 0.0)
 
 do j = 1, TT
  call gl8(v, dt, j, vel)
  call kdv(van, x, vel, j*dt)
  if (mod(real(j), cut) == 0.0) then
   print *, "Progress (%): ", 100.0*real(j)/TT
-  !call dump_sol(van + epsilon*v, j, j*dt)
-  call dump_sol(v, j + 1, j*dt)
+  call dump_sol(v, j, j*dt)
  endif
 end do
 
@@ -94,8 +93,8 @@ subroutine dump_sol(v, mark, time)
 real v(NN), time
 integer c2, mark
 
-if (mark == 1) open(unit = 22, file = 'phi1.bin', access='stream', status='unknown')
-if (mark> 1) open(unit = 22, file = 'phi1.bin', access='stream', status='old', position = 'append')
+if (mark == 0) open(unit = 22, file = 'phi1.bin', access='stream', status='unknown')
+if (mark > 0) open(unit = 22, file = 'phi1.bin', access='stream', status='old', position = 'append')
 
 do c2 = 1, NN
     write (22) time, x(c2), v(c2)

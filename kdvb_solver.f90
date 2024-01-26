@@ -9,9 +9,12 @@ real, parameter :: vel = 2.0
 real, parameter :: x0 = 300.0
 real, parameter :: t0 = 0.0
 real, parameter :: dt = 0.001
-integer, parameter :: TT = int(10.0/dt)+1 ! , lapse = int(3.0/dt)
-real, parameter :: epsilon = 0.2
+integer, parameter :: TT = int(900.0/dt)
+real, parameter :: cut = real(int(real(TT)/5000.0))
+
+real, parameter :: epsilon = 0.1
 real, parameter :: L = 2560.0, dx = L/NN, dk = 2.0*pi/L
+
 real(8) van(NN), x(NN), v(NN)
 type(C_PTR) :: plan, plan2
 integer i, j, m
@@ -19,14 +22,21 @@ integer i, j, m
 forall (i=1:NN) x(i) = (i-1)*dx
 
 print *, "full solution"
-! vel = m*0.1
+print *, "Total time:", TT*dt
+print *, "x0:", x0
+print *, "v:", vel
+
 call kdv(v, x, vel, 0.0)
 call dump_sol(v, 0, 0.0)
-print *, "vel:", vel
+
 do j = 1, TT
  call gl8(v, dt, j)
  call kdv(van, x, vel, j*dt)
- call dump_sol(v, j, j*dt)
+ if (mod(real(j), cut) == 0.0) then
+  print *, "Progress (%): ", 100.0*real(j)/TT
+  ! call dump_sol(van + epsilon*v, j, j*dt)
+  call dump_sol(v, j, j*dt)
+ endif
 end do
 
 contains
@@ -74,8 +84,8 @@ subroutine dump_sol(v, mark, time)
 real v(NN), time
 integer c2, mark
 
-if (mark == 1) open(unit = 22, file = 'soliton.bin', access='stream', status='unknown')
-if (mark> 1) open(unit = 22, file = 'soliton.bin', access='stream', status='old', position = 'append')
+if (mark == 0) open(unit = 22, file = 'soliton.bin', access='stream', status='unknown')
+if (mark > 0) open(unit = 22, file = 'soliton.bin', access='stream', status='old', position = 'append')
 
 do c2 = 1, NN
     write (22) time, x(c2), v(c2)
